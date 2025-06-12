@@ -10,6 +10,7 @@ import CoreData
 
 struct DoggoListView: View {
     @StateObject private var viewModel = DoggoListViewModel()
+    @State private var coordinator = Coordinator()
 
     var body: some View {
         NavigationView {
@@ -24,8 +25,9 @@ struct DoggoListView: View {
                             .padding()
                     } else {
                         ForEach(viewModel.dogs) { dog in
-                            DoggoRowView(dog: dog)
-                                .padding(.horizontal)
+                            NavigationLink(destination: coordinator.makeDoggoDetailView(for: dog)) {
+                                DoggoRowView(dog: dog)
+                            }
                         }
                     }
                 }

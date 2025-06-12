@@ -43,6 +43,7 @@ struct DoggoRowView: View {
                     .foregroundColor(.secondaryText)
                     .lineLimit(3)
                     .truncationMode(.tail)
+                    .multilineTextAlignment(.leading)
                     .frame(height: 52, alignment: .top)
 
                 Spacer()
