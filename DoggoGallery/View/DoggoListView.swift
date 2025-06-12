@@ -14,7 +14,7 @@ struct DoggoListView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: 16) {
                     if viewModel.isLoading {
                         ProgressView("Fetching doggos…")
                             .padding()
@@ -29,11 +29,13 @@ struct DoggoListView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.top)
             }
             .background(Color.appBackground)
             .navigationTitle("Dogs We Love")
+            .refreshable {
+                await viewModel.refreshData()
+            }
         }
     }
 }

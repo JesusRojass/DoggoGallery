@@ -11,12 +11,12 @@ struct DoggoRowView: View {
     let dog: Dog
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .top, spacing: 16) {
             AsyncImage(url: URL(string: dog.image)) { phase in
                 switch phase {
                 case .empty:
                     ProgressView()
-                        .frame(width: 80, height: 100)
+                        .frame(width: 80, height: 120)
                 case .success(let image):
                     image
                         .resizable()
@@ -25,7 +25,9 @@ struct DoggoRowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 case .failure:
                     Image(systemName: "photo")
-                        .frame(width: 80, height: 100)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 80, height: 120)
                 @unknown default:
                     EmptyView()
                 }
@@ -40,14 +42,20 @@ struct DoggoRowView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .lineLimit(3)
+                    .truncationMode(.tail)
+                    .frame(height: 52, alignment: .top)
+
+                Spacer()
 
                 Text("Almost \(dog.age) years")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primaryText)
-                    .padding(.top, 2)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
         }
         .padding()
+        .frame(height: 160) // ❗ Fixed height card — no more jumpy layout
         .background(Color.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
