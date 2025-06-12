@@ -6,31 +6,102 @@
 //
 
 import XCTest
+import Combine
 @testable import DoggoGallery
 
 final class DoggoGalleryTests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
+    final class MockDogStore: DogStoring {
+        var savedDogs: [Dog] = []
+        var shouldReturnDogs: [Dog] = []
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
+        func saveDogs(_ dogs: [Dog]) {
+            savedDogs = dogs
+        }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
-    }
+        func loadDogs() -> [Dog] {
+            return shouldReturnDogs
+        }
 
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
+        func clearDogs() {
+            savedDogs = []
         }
     }
 
+    final class MockDogFetcher: DogFetching {
+        var shouldReturnDogs: [Dog] = []
+        var shouldFail = false
+
+        func fetchDogs() -> AnyPublisher<[Dog], Error> {
+            if shouldFail {
+                return Fail(error: URLError(.badServerResponse))
+                    .eraseToAnyPublisher()
+            } else {
+                return Just(shouldReturnDogs)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            }
+        }
+    }
+
+    @MainActor func test_loadData_loadsFromStoreIfAlreadyLoaded() {
+        let store = MockDogStore()
+        let expected = [Dog(name: "Chief", description: "Test", age: 3, image: "url")]
+        store.shouldReturnDogs = expected
+        UserDefaults.standard.set(true, forKey: "HasLoadedDogs")
+
+        let sut = DoggoListViewModel(dogFetcher: MockDogFetcher(), dogStore: store)
+
+        XCTAssertEqual(sut.dogs, expected)
+    }
+
+    @MainActor func test_loadData_fetchesFromAPIIfNotLoaded() {
+        let store = MockDogStore()
+        let fetcher = MockDogFetcher()
+        let expected = [Dog(name: "Spots", description: "Brave", age: 4, image: "url")]
+        fetcher.shouldReturnDogs = expected
+        UserDefaults.standard.set(false, forKey: "HasLoadedDogs")
+
+        let expectation = XCTestExpectation(description: "Fetch completes")
+
+        let sut = DoggoListViewModel(dogFetcher: fetcher, dogStore: store)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            XCTAssertEqual(sut.dogs, expected)
+            XCTAssertEqual(store.savedDogs, expected)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 2)
+    }
+
+    @MainActor func test_refreshData_resetsCacheAndFetchesAgain() async {
+        let store = MockDogStore()
+        let fetcher = MockDogFetcher()
+        fetcher.shouldReturnDogs = [Dog(name: "Boss", description: "Mascot", age: 2, image: "img")]
+
+        let sut = DoggoListViewModel(dogFetcher: fetcher, dogStore: store)
+
+        await sut.refreshData()
+
+        XCTAssertEqual(sut.dogs, fetcher.shouldReturnDogs)
+        XCTAssertEqual(store.savedDogs, fetcher.shouldReturnDogs)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: "HasLoadedDogs"))
+    }
+
+    @MainActor func test_fetchDogs_handlesFailureGracefully() {
+        let fetcher = MockDogFetcher()
+        fetcher.shouldFail = true
+        let sut = DoggoListViewModel(dogFetcher: fetcher, dogStore: MockDogStore())
+
+        let expectation = XCTestExpectation(description: "Handle error")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            XCTAssertNotNil(sut.error)
+            XCTAssertEqual(sut.dogs.count, 0)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 2)
+    }
 }

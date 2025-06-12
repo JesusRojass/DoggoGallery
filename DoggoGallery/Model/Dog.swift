@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Dog: Codable, Identifiable {
+struct Dog: Codable, Identifiable, Equatable {
     let name: String
     let description: String
     let age: Int
